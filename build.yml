@@ -1,0 +1,46 @@
+name: Build Windows EXE
+
+# Produces "Hauppauge Live Capture Studio.exe" (self-contained, single file, win-x64) on a Windows runner.
+# Run it from the "Actions" tab ("Run workflow") or by pushing to the repository.
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      include_ffmpeg:
+        description: 'Download a GPL FFmpeg build and put ffmpeg.exe next to the EXE (needed for recording)'
+        type: boolean
+        default: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Build (publish self-contained, win-x64, single file)
+        shell: pwsh
+        run: |
+          $extra = @()
+          if ('${{ github.event.inputs.include_ffmpeg }}' -eq 'false') { $extra += '-SkipFfmpeg' }
+          ./build.ps1 @extra
+
+      - name: Zip the result
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "dist/Hauppauge Live Capture Studio/*" -DestinationPath "Hauppauge-Live-Capture-Studio-win-x64.zip" -Force
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Hauppauge-Live-Capture-Studio-win-x64
+          path: Hauppauge-Live-Capture-Studio-win-x64.zip
+          if-no-files-found: error
